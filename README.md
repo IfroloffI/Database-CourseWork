@@ -1,6 +1,6 @@
 # Qt6 Python App Setup
 
-## Add in .env:
+## Add in src/.env:
 
 ```yml
 # Application Configuration
@@ -21,6 +21,7 @@ DB_PASSWORD=secret
 Dependencies: **Git**, **Docker**, **Python** ***(3.11+)***, Qt Designer (optional)
 
 ```bash
+cd src
 cd deploy
 docker-compose --env-file ../.env up -d --build  # Create storages
 cd ..
