@@ -17,7 +17,7 @@ class AuthWindow(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Авторизация")
-        self.resize(800, 400)
+        self.resize(400, 400)
         self.controller = AuthController()
         self.init_ui()
 

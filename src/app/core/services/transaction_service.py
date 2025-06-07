@@ -19,7 +19,7 @@ class TransactionService(BaseService):
                 )
                 return [Transaction(*row) for row in cursor.fetchall()]
         except Exception as e:
-            print(f"Ошибка при получении транзакций счета {account_id}: {e}")
+            print(f"Ошибка при получении транзакций счёта {account_id}: {e}")
             return []
 
     def get_client_transactions(self, client_id: int) -> List[Transaction]:
@@ -38,7 +38,7 @@ class TransactionService(BaseService):
                 )
                 return [Transaction(*row) for row in cursor.fetchall()]
         except Exception as e:
-            print(f"Ошибка при получении транзакций клиента {client_id}: {e}")
+            print(f"Ошибка при загрузке транзакций клиента {client_id}: {e}")
             return []
 
     def get_all_transactions(self) -> List[Transaction]:
@@ -46,9 +46,9 @@ class TransactionService(BaseService):
             with self.db.get_cursor() as cursor:
                 cursor.execute(
                     """
-                    SELECT id, from_account_id, to_account_id, amount, 
-                        transaction_type, description, transaction_date, status, created_at 
-                    FROM transactions 
+                    SELECT id, from_account_id, to_account_id, amount,
+                           transaction_type, description, transaction_date, status, created_at
+                    FROM transactions
                     ORDER BY transaction_date DESC
                     """
                 )
@@ -70,9 +70,13 @@ class TransactionService(BaseService):
                     (transaction_id,),
                 )
                 result = cursor.fetchone()
-                return Transaction(*result) if result else None
+                if result:
+                    return Transaction(*result)
+                else:
+                    return None
         except Exception as e:
-            raise Exception(f"Ошибка при получении транзакции: {str(e)}")
+            print(f"Ошибка при получении транзакции по ID {transaction_id}: {e}")
+            return None
 
     def add_transaction(self, **data) -> bool:
         try:
@@ -89,14 +93,15 @@ class TransactionService(BaseService):
                         data["to_account_id"],
                         data["amount"],
                         data["transaction_type"],
-                        data["description"],
+                        data.get("description", ""),
                     ),
                 )
                 self.db.connection.commit()
                 return True
         except Exception as e:
             self.db.connection.rollback()
-            raise Exception(f"Ошибка при добавлении транзакции: {str(e)}")
+            print(f"Ошибка при добавлении транзакции: {e}")
+            return False
 
     def update_transaction(self, transaction_id: int, **data) -> bool:
         try:
@@ -116,7 +121,7 @@ class TransactionService(BaseService):
                         data["to_account_id"],
                         data["amount"],
                         data["transaction_type"],
-                        data["description"],
+                        data.get("description", ""),
                         transaction_id,
                     ),
                 )
@@ -124,7 +129,8 @@ class TransactionService(BaseService):
                 return cursor.rowcount > 0
         except Exception as e:
             self.db.connection.rollback()
-            raise Exception(f"Ошибка при обновлении транзакции: {str(e)}")
+            print(f"Ошибка при обновлении транзакции {transaction_id}: {e}")
+            return False
 
     def delete_transaction(self, transaction_id: int) -> bool:
         try:
@@ -137,4 +143,5 @@ class TransactionService(BaseService):
                 return cursor.rowcount > 0
         except Exception as e:
             self.db.connection.rollback()
-            raise Exception(f"Ошибка при удалении транзакции: {str(e)}")
+            print(f"Ошибка при удалении транзакции {transaction_id}: {e}")
+            return False

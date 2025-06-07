@@ -36,6 +36,8 @@ CREATE TABLE accounts (
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
+CREATE UNIQUE INDEX idx_account_number ON accounts (account_number);
+
 -- Создание таблицы транзакций
 CREATE TABLE transactions (
     id SERIAL PRIMARY KEY,

@@ -26,13 +26,13 @@ cd deploy
 docker-compose --env-file ../.env up -d --build  # Create storages
 cd ..
 python -m venv venv           # Create virtual environment
+
 venv\Scripts\activate         # Activate on Windows
 source venv/bin/activate      # Activate on Linux/Mac
 
 python -m pip install --upgrade pip
-pip install -r requirements.txt # Or pip install PyQt6 python-dotenv psycopg2-binary bcrypt
+pip install -r requirements.txt # Or pip install PyQt6 python-dotenv psycopg2-binary bcrypt PyQt6-Charts
 
-cd src
 python -m app.core.utils.convert_ui
 python -m app.main
 ```

@@ -14,7 +14,7 @@ class RegistrationWindow(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Регистрация")
-        self.resize(1000, 600)
+        self.resize(400, 600)
         self.controller = AuthController()
         self.init_ui()
 

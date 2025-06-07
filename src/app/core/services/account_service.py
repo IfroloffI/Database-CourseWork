@@ -4,6 +4,9 @@ from app.core.services.base_service import BaseService
 
 
 class AccountService(BaseService):
+    def __init__(self):
+        super().__init__()
+
     def get_client_accounts(self, client_id: int) -> List[Account]:
         try:
             with self.db.get_cursor() as cursor:
@@ -46,7 +49,7 @@ class AccountService(BaseService):
     def add_account(self, client_id: int, **data) -> bool:
         try:
             if not self._exists("clients", client_id):
-                raise Exception("Клиент не существует")
+                raise ValueError("Клиент не существует")
 
             with self.db.get_cursor() as cursor:
                 cursor.execute(
@@ -54,30 +57,33 @@ class AccountService(BaseService):
                     (data["account_number"],),
                 )
                 if cursor.fetchone():
-                    raise Exception("Счет с таким номером уже существует")
+                    raise ValueError("Счет с таким номером уже существует")
 
+            with self.db.get_cursor() as cursor:
                 cursor.execute(
                     """
                     INSERT INTO accounts 
-                    (client_id, account_number, account_type, 
-                     balance, currency, is_active, opened_date) 
+                    (client_id, account_number, account_type, balance, currency, is_active, opened_date) 
                     VALUES (%s, %s, %s, %s, %s, %s, CURRENT_DATE)
-                    RETURNING id
                     """,
                     (
                         client_id,
                         data["account_number"],
                         data["account_type"],
-                        data["balance"],
-                        data["currency"],
-                        data["is_active"],
+                        data.get("balance", 0.0),
+                        data.get("currency", "RUB"),
+                        data.get("is_active", True),
                     ),
                 )
                 self.db.connection.commit()
                 return True
+        except ValueError as ve:
+            print(f"[INFO] Ошибка добавления счёта: {ve}")
+            return False
         except Exception as e:
             self.db.connection.rollback()
-            raise Exception(f"Ошибка добавления счета: {str(e)}")
+            print(f"[ERROR] Ошибка добавления счёта: {e}")
+            return False
 
     def update_account(self, account_id: int, **data) -> bool:
         try:
@@ -101,8 +107,8 @@ class AccountService(BaseService):
                 self.db.connection.commit()
                 return cursor.rowcount > 0
         except Exception as e:
-            print(f"Ошибка при обновлении счета {account_id}: {e}")
             self.db.connection.rollback()
+            print(f"Ошибка при обновлении счета {account_id}: {e}")
             return False
 
     def delete_account(self, account_id: int) -> bool:
@@ -112,6 +118,38 @@ class AccountService(BaseService):
                 self.db.connection.commit()
                 return cursor.rowcount > 0
         except Exception as e:
-            print(f"Ошибка при удалении счета {account_id}: {e}")
             self.db.connection.rollback()
+            print(f"Ошибка при удалении счета {account_id}: {e}")
+            return False
+
+    def get_account_by_number(self, account_number: str) -> Optional[Account]:
+        try:
+            with self.db.get_cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT id, client_id, account_number, account_type,
+                           balance, currency, opened_date, is_active, created_at, updated_at
+                    FROM accounts 
+                    WHERE account_number = %s
+                    """,
+                    (account_number,),
+                )
+                result = cursor.fetchone()
+                return Account(*result) if result else None
+        except Exception as e:
+            print(f"Ошибка при получении счёта по номеру: {e}")
+            return None
+
+    def update_balance(self, account_id: int, amount: float) -> bool:
+        try:
+            with self.db.get_cursor() as cursor:
+                cursor.execute(
+                    "UPDATE accounts SET balance = balance + %s, updated_at = NOW() WHERE id = %s",
+                    (amount, account_id),
+                )
+                self.db.connection.commit()
+                return cursor.rowcount > 0
+        except Exception as e:
+            self.db.connection.rollback()
+            print(f"Ошибка обновления баланса: {e}")
             return False
