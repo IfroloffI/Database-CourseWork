@@ -5,7 +5,7 @@
 ```yml
 # Application Configuration
 APP_NAME=QtApp
-APP_VERSION=0.0.8beta
+APP_VERSION=0.1.0stable
 UI_FILE=main_window.ui
 
 # Database Configuration

@@ -35,6 +35,9 @@ class DataService:
     def get_client_accounts(self, client_id: int):
         return self.account_service.get_client_accounts(client_id)
 
+    def get_account_transactions(self, account_id: int):
+        return self.transaction_service.get_account_transactions(account_id)
+
     def get_client_transactions(self, client_id: int):
         return self.transaction_service.get_client_transactions(client_id)
 

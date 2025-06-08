@@ -84,6 +84,18 @@ class UserWindow(QWidget):
 
         self.account_table = QTableView()
         self.account_table.setSortingEnabled(True)
+        self.account_table.horizontalHeader().setStretchLastSection(True)
+        self.account_table.setStyleSheet(
+            """
+            QTableView::item { text-align: center; }
+            QTableView {
+                border: 1px solid #ccc;
+                gridline-color: #eee;
+                background-color: #f9f9f9;
+            }
+        """
+        )
+
         account_layout.addWidget(self.account_table)
 
         create_group = QGroupBox("Создать новый счёт")
@@ -99,29 +111,7 @@ class UserWindow(QWidget):
         create_form.addRow(create_btn)
         create_group.setLayout(create_form)
         account_layout.addWidget(create_group)
-
         tab_widget.addTab(account_tab, "Счета")
-
-        # --- Вкладка Пополнение ---
-        deposit_tab = QWidget()
-        deposit_layout = QVBoxLayout(deposit_tab)
-
-        deposit_group = QGroupBox("Пополнить счёт")
-        deposit_form = QFormLayout()
-        self.deposit_account_combo = QComboBox()
-        self.deposit_amount_input = QLineEdit()
-        self.deposit_balance_label = QLabel("Баланс: 0.0 RUB")
-        deposit_btn = QPushButton("Пополнить")
-        deposit_btn.clicked.connect(self.deposit_balance)
-
-        deposit_form.addRow("Выберите счёт:", self.deposit_account_combo)
-        deposit_form.addRow("", self.deposit_balance_label)
-        deposit_form.addRow("Сумма пополнения:", self.deposit_amount_input)
-        deposit_form.addRow(deposit_btn)
-        deposit_group.setLayout(deposit_form)
-        deposit_layout.addWidget(deposit_group)
-
-        tab_widget.addTab(deposit_tab, "Пополнение")
 
         # --- Вкладка Переводы ---
         transfer_tab = QWidget()
@@ -131,6 +121,7 @@ class UserWindow(QWidget):
         form_layout = QFormLayout()
         self.transfer_from_combo = QComboBox()
         self.balance_label = QLabel("Баланс: 0.0 RUB")
+        self.balance_label.setStyleSheet("font-weight: bold; font-size: 14px;")
         self.to_account_input = QLineEdit()
         self.transfer_amount_input = QLineEdit()
         transfer_btn = QPushButton("Перевести")
@@ -143,8 +134,28 @@ class UserWindow(QWidget):
         form_layout.addRow(transfer_btn)
         transfer_group.setLayout(form_layout)
         transfer_layout.addWidget(transfer_group)
-
         tab_widget.addTab(transfer_tab, "Переводы")
+
+        # --- Вкладка Пополнение ---
+        deposit_tab = QWidget()
+        deposit_layout = QVBoxLayout(deposit_tab)
+
+        deposit_group = QGroupBox("Пополнить счёт")
+        deposit_form = QFormLayout()
+        self.deposit_account_combo = QComboBox()
+        self.deposit_balance_label = QLabel("Баланс: 0.0 RUB")
+        self.deposit_balance_label.setStyleSheet("font-weight: bold; font-size: 14px;")
+        self.deposit_amount_input = QLineEdit()
+        deposit_btn = QPushButton("Пополнить")
+        deposit_btn.clicked.connect(self.deposit_balance)
+
+        deposit_form.addRow("Выберите счёт:", self.deposit_account_combo)
+        deposit_form.addRow("", self.deposit_balance_label)
+        deposit_form.addRow("Сумма пополнения:", self.deposit_amount_input)
+        deposit_form.addRow(deposit_btn)
+        deposit_group.setLayout(deposit_form)
+        deposit_layout.addWidget(deposit_group)
+        tab_widget.addTab(deposit_tab, "Пополнение")
 
         # --- Вкладка История и Статистика ---
         history_stats_tab = QWidget()
@@ -156,20 +167,24 @@ class UserWindow(QWidget):
         self.filter_type_combo.addItems(["Все", "transfer", "deposit", "withdrawal"])
 
         filter_layout.addWidget(QLabel("Фильтр по счёту:"))
-        self.filter_account_combo.addItem("Все", None)
-        for acc in self.accounts:
-            self.filter_account_combo.addItem(
-                f"{acc.account_number} ({acc.account_type})", acc.id
-            )
-
         filter_layout.addWidget(self.filter_account_combo)
         filter_layout.addWidget(QLabel("Тип операции:"))
         filter_layout.addWidget(self.filter_type_combo)
-
         history_stats_layout.addLayout(filter_layout)
 
         self.transaction_table = QTableView()
         self.transaction_table.setSortingEnabled(True)
+        self.transaction_table.horizontalHeader().setStretchLastSection(True)
+        self.transaction_table.setStyleSheet(
+            """
+            QTableView::item { text-align: center; }
+            QTableView {
+                border: 1px solid #ccc;
+                background-color: #f9f9f9;
+                gridline-color: #eee;
+            }
+        """
+        )
         history_stats_layout.addWidget(self.transaction_table)
 
         stats_inner_tabs = QTabWidget()
@@ -200,6 +215,7 @@ class UserWindow(QWidget):
         main_layout.addWidget(tab_widget)
         self.setLayout(main_layout)
 
+        # Подключаем сигналы
         self.transfer_from_combo.currentIndexChanged.connect(self._on_account_selected)
         self.deposit_account_combo.currentIndexChanged.connect(
             self._on_deposit_account_selected
@@ -231,7 +247,6 @@ class UserWindow(QWidget):
         client = AppStorage.current_client
         if not client:
             return
-
         self._load_transactions(client.id)
         self.update_income_expense_chart()
         self.update_distribution_chart()
@@ -279,7 +294,6 @@ class UserWindow(QWidget):
 
         self._on_account_selected()
         self._on_deposit_account_selected()
-        self._on_filter_changed()
 
     def _load_transactions(self, client_id: int):
         account_id = self.filter_account_combo.currentData()
@@ -289,9 +303,8 @@ class UserWindow(QWidget):
         transactions = self.user_controller.data_service.get_client_transactions(
             client_id
         )
-
-        data = []
         seen_ids = set()
+        data = []
 
         for t in transactions:
             if t.id in seen_ids:
@@ -308,9 +321,8 @@ class UserWindow(QWidget):
             if account_id:
                 if t.from_account_id != account_id and t.to_account_id != account_id:
                     continue
-            if transaction_type:
-                if t.transaction_type != transaction_type:
-                    continue
+            if transaction_type and t.transaction_type != transaction_type:
+                continue
 
             data.append(
                 [
@@ -358,28 +370,27 @@ class UserWindow(QWidget):
 
         series_income = QBarSet("Пополнения")
         series_expense = QBarSet("Расходы")
+        series_income.append(incomes)
+        series_expense.append(expenses)
         series_income.setColor(Qt.GlobalColor.green)
         series_expense.setColor(Qt.GlobalColor.red)
 
         bar_series = QBarSeries()
-        series_income.append(incomes)
-        series_expense.append(expenses)
         bar_series.append(series_income)
         bar_series.append(series_expense)
 
         axis_x = QBarCategoryAxis()
         axis_x.setTitleText("Месяцы")
         axis_x.append(months)
-
         axis_y = QValueAxis()
         axis_y.setTitleText("Сумма (RUB)")
 
         chart = self.income_expense_chart_view.chart()
+        chart.removeAllSeries()
         chart.addSeries(bar_series)
-
-        for ax in chart.axes():
-            chart.removeAxis(ax)
-
+        chart.createDefaultAxes()
+        chart.removeAxis(chart.axes()[0])
+        chart.removeAxis(chart.axes()[0])
         chart.addAxis(axis_x, Qt.AlignmentFlag.AlignBottom)
         chart.addAxis(axis_y, Qt.AlignmentFlag.AlignLeft)
         bar_series.attachAxis(axis_x)
