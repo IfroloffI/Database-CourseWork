@@ -17,6 +17,10 @@ class UserController(QObject):
         QMessageBox.critical(None, "Ошибка", message)
 
     @pyqtSlot()
+    def show_success(self, message: str):
+        QMessageBox.information(None, "Успех", message)
+
+    @pyqtSlot()
     def create_account(
         self, client_id: int, account_number: str, account_type: str
     ) -> bool:

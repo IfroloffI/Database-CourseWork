@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import (
     QTabWidget,
     QFormLayout,
     QGroupBox,
+    QMessageBox,
 )
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
@@ -35,7 +36,6 @@ class UserWindow(QWidget):
         self.user_controller = UserController()
         self.stats_controller = StatsController(self.user_controller.data_service)
         self.accounts = []
-        self.selected_account_id = None
         self.init_ui()
 
     def init_ui(self):
@@ -110,10 +110,12 @@ class UserWindow(QWidget):
         deposit_form = QFormLayout()
         self.deposit_account_combo = QComboBox()
         self.deposit_amount_input = QLineEdit()
+        self.deposit_balance_label = QLabel("Баланс: 0.0 RUB")
         deposit_btn = QPushButton("Пополнить")
         deposit_btn.clicked.connect(self.deposit_balance)
 
         deposit_form.addRow("Выберите счёт:", self.deposit_account_combo)
+        deposit_form.addRow("", self.deposit_balance_label)
         deposit_form.addRow("Сумма пополнения:", self.deposit_amount_input)
         deposit_form.addRow(deposit_btn)
         deposit_group.setLayout(deposit_form)
@@ -144,7 +146,7 @@ class UserWindow(QWidget):
 
         tab_widget.addTab(transfer_tab, "Переводы")
 
-        # --- Вкладка История и статистика ---
+        # --- Вкладка История и Статистика ---
         history_stats_tab = QWidget()
         history_stats_layout = QVBoxLayout(history_stats_tab)
 
@@ -154,6 +156,12 @@ class UserWindow(QWidget):
         self.filter_type_combo.addItems(["Все", "transfer", "deposit", "withdrawal"])
 
         filter_layout.addWidget(QLabel("Фильтр по счёту:"))
+        self.filter_account_combo.addItem("Все", None)
+        for acc in self.accounts:
+            self.filter_account_combo.addItem(
+                f"{acc.account_number} ({acc.account_type})", acc.id
+            )
+
         filter_layout.addWidget(self.filter_account_combo)
         filter_layout.addWidget(QLabel("Тип операции:"))
         filter_layout.addWidget(self.filter_type_combo)
@@ -187,19 +195,25 @@ class UserWindow(QWidget):
         stats_inner_tabs.addTab(distribution_tab, "Распределение по типам")
 
         history_stats_layout.addWidget(stats_inner_tabs)
-        tab_widget.addTab(history_stats_tab, "История и статистика")
+        tab_widget.addTab(history_stats_tab, "История и Статистика")
 
         main_layout.addWidget(tab_widget)
         self.setLayout(main_layout)
 
-        # Подключаем сигналы фильтрации
         self.transfer_from_combo.currentIndexChanged.connect(self._on_account_selected)
+        self.deposit_account_combo.currentIndexChanged.connect(
+            self._on_deposit_account_selected
+        )
         self.filter_account_combo.currentIndexChanged.connect(self._on_filter_changed)
         self.filter_type_combo.currentIndexChanged.connect(self._on_filter_changed)
 
         self.load_user_data()
+        self._on_filter_changed()
         self.update_income_expense_chart()
         self.update_distribution_chart()
+
+    def show_success(self, message: str):
+        QMessageBox.information(None, "Успех", message)
 
     def _on_account_selected(self):
         current_index = self.transfer_from_combo.currentIndex()
@@ -207,10 +221,17 @@ class UserWindow(QWidget):
         balance = self.user_controller.get_selected_account_balance(account_id)
         self.balance_label.setText(f"Баланс: {balance:.2f} RUB")
 
+    def _on_deposit_account_selected(self):
+        account_index = self.deposit_account_combo.currentIndex()
+        account_id = self.deposit_account_combo.itemData(account_index)
+        balance = self.user_controller.get_selected_account_balance(account_id)
+        self.deposit_balance_label.setText(f"Баланс: {balance:.2f} RUB")
+
     def _on_filter_changed(self):
         client = AppStorage.current_client
         if not client:
             return
+
         self._load_transactions(client.id)
         self.update_income_expense_chart()
         self.update_distribution_chart()
@@ -225,13 +246,15 @@ class UserWindow(QWidget):
 
         account_data = []
         for acc in self.accounts:
-            account_data.append([
-                acc.account_number,
-                acc.account_type,
-                f"{acc.balance:.2f} {acc.currency}",
-                acc.opened_date.strftime("%Y-%m-%d"),
-                "Активен" if acc.is_active else "Заблокирован"
-            ])
+            account_data.append(
+                [
+                    acc.account_number,
+                    acc.account_type,
+                    f"{acc.balance:.2f} {acc.currency}",
+                    acc.opened_date.strftime("%Y-%m-%d"),
+                    "Активен" if acc.is_active else "Заблокирован",
+                ]
+            )
         headers = ["Номер", "Тип", "Баланс", "Дата открытия", "Статус"]
         self.account_table.setModel(BaseTableModel(account_data, headers))
 
@@ -255,6 +278,7 @@ class UserWindow(QWidget):
         self.filter_account_combo.blockSignals(False)
 
         self._on_account_selected()
+        self._on_deposit_account_selected()
         self._on_filter_changed()
 
     def _load_transactions(self, client_id: int):
@@ -265,8 +289,9 @@ class UserWindow(QWidget):
         transactions = self.user_controller.data_service.get_client_transactions(
             client_id
         )
-        seen_ids = set()
+
         data = []
+        seen_ids = set()
 
         for t in transactions:
             if t.id in seen_ids:
@@ -279,6 +304,13 @@ class UserWindow(QWidget):
             to_acc = self.user_controller.data_service.get_account_by_id(
                 t.to_account_id
             )
+
+            if account_id:
+                if t.from_account_id != account_id and t.to_account_id != account_id:
+                    continue
+            if transaction_type:
+                if t.transaction_type != transaction_type:
+                    continue
 
             data.append(
                 [
@@ -313,19 +345,25 @@ class UserWindow(QWidget):
         if not client:
             return
 
-        summary = self.stats_controller.get_monthly_summary(client.id)
+        account_id = self.filter_account_combo.currentData()
+        transaction_type = self.filter_type_combo.currentText()
+        transaction_type = None if transaction_type == "Все" else transaction_type
+
+        summary = self.stats_controller.get_monthly_summary(
+            client.id, account_id, transaction_type
+        )
         months = summary["months"]
         incomes = summary["incomes"]
         expenses = summary["expenses"]
 
         series_income = QBarSet("Пополнения")
         series_expense = QBarSet("Расходы")
-        series_income.append(incomes)
-        series_expense.append(expenses)
         series_income.setColor(Qt.GlobalColor.green)
         series_expense.setColor(Qt.GlobalColor.red)
 
         bar_series = QBarSeries()
+        series_income.append(incomes)
+        series_expense.append(expenses)
         bar_series.append(series_income)
         bar_series.append(series_expense)
 
@@ -338,7 +376,6 @@ class UserWindow(QWidget):
 
         chart = self.income_expense_chart_view.chart()
         chart.addSeries(bar_series)
-        chart.createDefaultAxes()
 
         for ax in chart.axes():
             chart.removeAxis(ax)
@@ -358,7 +395,13 @@ class UserWindow(QWidget):
         if not client:
             return
 
-        summary = self.stats_controller.get_transaction_type_summary(client.id)
+        account_id = self.filter_account_combo.currentData()
+        transaction_type = self.filter_type_combo.currentText()
+        transaction_type = None if transaction_type == "Все" else transaction_type
+
+        summary = self.stats_controller.get_transaction_type_summary(
+            client.id, account_id, transaction_type
+        )
 
         pie_series = QPieSeries()
         pie_series.append("Пополнения", summary["deposit"])
@@ -382,6 +425,7 @@ class UserWindow(QWidget):
         slice_3.setBrush(Qt.GlobalColor.blue)
 
         chart = self.distribution_pie_chart_view.chart()
+        chart.removeAllSeries()
         chart.addSeries(pie_series)
         chart.setTitle("Распределение транзакций по типам")
 
@@ -401,11 +445,9 @@ class UserWindow(QWidget):
             client.id, account_number, account_type
         )
         if success:
-            print("[DEBUG] Счёт создан успешно")  # log
             self.account_number_input.clear()
+            self.show_success("Счёт успешно создан!")
             self.load_user_data()
-        else:
-            self.user_controller.show_error("Не удалось создать счёт")
 
     def deposit_balance(self):
         account_index = self.deposit_account_combo.currentIndex()
@@ -427,9 +469,8 @@ class UserWindow(QWidget):
         success = self.user_controller.deposit_balance(account_id, amount)
         if success:
             self.deposit_amount_input.clear()
+            self.show_success("Счёт успешно пополнен!")
             self.load_user_data()
-        else:
-            self.user_controller.show_error("Ошибка пополнения")
 
     def make_transfer(self):
         from_index = self.transfer_from_combo.currentIndex()
@@ -459,8 +500,8 @@ class UserWindow(QWidget):
         success = self.user_controller.transfer_funds(
             from_account_id, to_account_number, amount, "Перевод пользователю"
         )
-
         if success:
             self.to_account_input.clear()
             self.transfer_amount_input.clear()
+            self.show_success("Перевод выполнен успешно!")
             self.load_user_data()
