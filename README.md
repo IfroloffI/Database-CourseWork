@@ -59,7 +59,11 @@ python -m app.main
 ## Admin account:
 
 ```bash
-login, password:
+admin login, password:
 admin@example.com
+adminpass
+
+example user login, password:
+ivan@example.com
 adminpass
 ```
