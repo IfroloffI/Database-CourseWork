@@ -18,8 +18,9 @@ class StatsController:
         transaction_type: Optional[str] = None,
     ) -> dict:
         try:
-            transactions = self.data_service.get_client_transactions(client_id)
-
+            transactions = self.data_service.get_client_transactions(
+                client_id, account_id, transaction_type
+            )
             if account_id:
                 transactions = [
                     t
@@ -57,8 +58,9 @@ class StatsController:
         transaction_type: Optional[str] = None,
     ) -> dict:
         try:
-            transactions = self.data_service.get_client_transactions(client_id)
-
+            transactions = self.data_service.get_client_transactions(
+                client_id, account_id, transaction_type
+            )
             if account_id:
                 transactions = [
                     t
@@ -89,3 +91,17 @@ class StatsController:
         except Exception as e:
             self.show_error(f"Ошибка при загрузке баланса: {str(e)}")
             return {"accounts": [], "balances": []}
+
+    def get_monthly_summary(
+        self, client_id: int, account_id: int = None, transaction_type: str = None
+    ):
+        return self.data_service.get_monthly_summary(
+            client_id, account_id, transaction_type
+        )
+
+    def get_transaction_type_summary(
+        self, client_id: int, account_id: int = None, transaction_type: str = None
+    ):
+        return self.data_service.get_transaction_type_summary(
+            client_id, account_id, transaction_type
+        )

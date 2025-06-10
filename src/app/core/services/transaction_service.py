@@ -22,23 +22,37 @@ class TransactionService(BaseService):
             print(f"Ошибка при получении транзакций счёта {account_id}: {e}")
             return []
 
-    def get_client_transactions(self, client_id: int) -> List[Transaction]:
+    def get_client_transactions(
+        self,
+        client_id: int = None,
+        account_id: int = None,
+        transaction_type: str = None,
+    ) -> List[Transaction]:
         try:
-            with self.db.get_cursor() as cursor:
-                cursor.execute(
-                    """
-                    SELECT t.id, t.from_account_id, t.to_account_id, t.amount, 
-                           t.transaction_type, t.description, t.transaction_date, t.status, t.created_at 
+            query = """
+                    SELECT t.id, t.from_account_id, t.to_account_id, t.amount,
+                        t.transaction_type, t.description, t.transaction_date, t.status, t.created_at
                     FROM transactions t
                     JOIN accounts a ON a.id = t.from_account_id OR a.id = t.to_account_id
-                    WHERE a.client_id = %s
-                    ORDER BY t.transaction_date DESC
-                """,
-                    (client_id,),
-                )
+                """
+            params = []
+
+            if client_id:
+                query += " WHERE a.client_id = %s"
+                params.extend([client_id])
+
+            if account_id:
+                query += " AND (t.from_account_id = %s OR t.to_account_id = %s)"
+                params.extend([account_id, account_id])
+            if transaction_type and transaction_type != "Все":
+                query += " AND t.transaction_type = %s"
+                params.append(transaction_type)
+
+            with self.db.get_cursor() as cursor:
+                cursor.execute(query, tuple(params))
                 return [Transaction(*row) for row in cursor.fetchall()]
         except Exception as e:
-            print(f"Ошибка при загрузке транзакций клиента {client_id}: {e}")
+            print(f"Ошибка при получении транзакций клиента: {e}")
             return []
 
     def get_all_transactions(self) -> List[Transaction]:

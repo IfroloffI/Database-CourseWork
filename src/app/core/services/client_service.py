@@ -126,3 +126,19 @@ class ClientService(BaseService):
         except Exception as e:
             print(f"Ошибка при получении клиента по email: {e}")
             return None
+
+    def search_clients_by_name(self, full_name: str) -> list[Client]:
+        try:
+            with self.db.get_cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT id, first_name, last_name, passport_number, phone_number, email, created_at, updated_at
+                    FROM clients
+                    WHERE first_name ILIKE %s OR last_name ILIKE %s
+                """,
+                    (f"%{full_name}%", f"%{full_name}%"),
+                )
+                return [Client(*row) for row in cursor.fetchall()]
+        except Exception as e:
+            print(f"Ошибка при поиске клиентов: {e}")
+            return []

@@ -12,6 +12,13 @@ from app.ui.utils.app_storage import AppStorage
 
 
 class MainWindow(QMainWindow):
+    def _switch_to_new_admin(self):
+        from app.ui.views.admin_window import AdminWindow
+
+        self.close()
+        self.admin_window = AdminWindow()
+        self.admin_window.show()
+
     def __init__(self):
         super().__init__()
         self.ui = Ui_MainWindow()
@@ -35,8 +42,38 @@ class MainWindow(QMainWindow):
             table.setSelectionBehavior(QTableView.SelectionBehavior.SelectRows)
             table.setSelectionMode(QTableView.SelectionMode.SingleSelection)
             table.hideColumn(0)
+            table.setSortingEnabled(True)
+
+        self.ui.clientsTableView.setStyleSheet(
+            "QTableView::item { text-align: center; }"
+        )
+        self.ui.accountsTableView.setStyleSheet(
+            "QTableView::item { text-align: center; }"
+        )
+        self.ui.transactionsTableView.setStyleSheet(
+            "QTableView::item { text-align: center; }"
+        )
 
     def _connect_signals(self):
+        self.ui.switchToNewButton.clicked.connect(self._switch_to_new_admin)
+        self.ui.switchToNewButton.setStyleSheet(
+            """
+            QPushButton {
+                background-color: #A0A0A0;
+                color: white;
+                padding: 6px 12px;
+                border-radius: 4px;
+                font-size: 13px;
+                min-width: 150px;
+                height: 30px;
+            }
+            QPushButton:hover {
+                background-color: #3498DB;
+            }
+            """
+        )
+        # self.ui.actionExit.triggered.connect(self.close)
+
         self.ui.addClientButton.clicked.connect(self._add_client_dialog)
         self.ui.editClientButton.clicked.connect(self._edit_client_dialog)
         self.ui.deleteClientButton.clicked.connect(self._delete_client)

@@ -346,6 +346,7 @@ class UserWindow(QWidget):
             "Дата",
         ]
         self.transaction_table.setModel(BaseTableModel(data, headers))
+        self.transaction_table.setColumnHidden(0, True)
 
     def update_income_expense_chart(self):
         chart = self.income_expense_chart_view.chart()

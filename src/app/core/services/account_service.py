@@ -7,22 +7,30 @@ class AccountService(BaseService):
     def __init__(self):
         super().__init__()
 
-    def get_client_accounts(self, client_id: int) -> List[Account]:
+    def get_client_accounts(
+        self, client_id: int, account_type: str = None
+    ) -> List[Account]:
         try:
             with self.db.get_cursor() as cursor:
-                cursor.execute(
-                    """
-                    SELECT id, client_id, account_number, account_type, 
-                           balance, currency, opened_date, is_active, created_at, updated_at 
-                    FROM accounts 
-                    WHERE client_id = %s
-                    ORDER BY opened_date DESC
-                """,
-                    (client_id,),
-                )
+                query = """
+                    SELECT id, client_id, account_number, account_type, balance, currency, opened_date, is_active, created_at, updated_at
+                    FROM accounts
+                    WHERE 1=1
+                """
+                params = []
+
+                if client_id:
+                    query += " AND client_id = %s"
+                    params.append(client_id)
+
+                if account_type:
+                    query += " AND account_type = %s"
+                    params.append(account_type)
+
+                cursor.execute(query, tuple(params))
                 return [Account(*row) for row in cursor.fetchall()]
         except Exception as e:
-            print(f"Ошибка при получении счетов клиента {client_id}: {e}")
+            print(f"Ошибка при получении счетов клиента: {e}")
             return []
 
     def get_account_by_id(self, account_id: int) -> Optional[Account]:
@@ -153,3 +161,19 @@ class AccountService(BaseService):
             self.db.connection.rollback()
             print(f"Ошибка обновления баланса: {e}")
             return False
+
+    def get_all_accounts(self) -> List[Account]:
+        try:
+            with self.db.get_cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT id, client_id, account_number, account_type, 
+                        balance, currency, opened_date, is_active, created_at, updated_at
+                    FROM accounts
+                    ORDER BY opened_date DESC
+                """
+                )
+                return [Account(*row) for row in cursor.fetchall()]
+        except Exception as e:
+            print(f"Ошибка при получении всех счетов: {e}")
+            return []
